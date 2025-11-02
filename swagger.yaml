@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: VeloInterest Racing API
+  description: API for managing mini4wd and miniz racing events
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/spotingify/velointerest-go-api
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+security:
+  - FirebaseAuth: []
+
+paths:
+  /api/healthcheck:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /api/mini4wd/races:
+    get:
+      summary: Get all racing events
+      description: Retrieve a paginated list of racing events that the authenticated user owns or has access to
+      tags:
+        - Racing Events
+      parameters:
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Successfully retrieved racing events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserEventsResponse'
+        '401':
+          description: Unauthorized - Invalid or missing Firebase authentication
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Unauthorized
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Something went wrong
+
+    post:
+      summary: Create a new racing event
+      description: Create a new racing event for the authenticated user
+      tags:
+        - Racing Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRaceEventRequest'
+      responses:
+        '200':
+          description: Successfully created racing event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEventResponse'
+        '400':
+          description: Bad request - Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid request
+        '401':
+          description: Unauthorized - Invalid or missing Firebase authentication
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Unauthorized
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Something went wrong
+
+  /api/mini4wd/races/{id}:
+    get:
+      summary: Get a specific racing event
+      description: Retrieve a specific racing event by ID that the authenticated user owns or has access to
+      tags:
+        - Racing Events
+      parameters:
+        - name: id
+          in: path
+          description: UUID of the racing event
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved racing event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceEvent'
+        '401':
+          description: Unauthorized - Invalid or missing Firebase authentication
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Unauthorized
+        '404':
+          description: Racing event not found or access denied
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Something went wrong
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Something went wrong
+
+components:
+  securitySchemes:
+    FirebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase JWT
+      description: Firebase Authentication JWT token
+
+  schemas:
+    EventType:
+      type: string
+      enum:
+        - mini4wd
+        - miniz
+      description: Type of racing event
+
+    RaceEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the racing event
+        name:
+          type: string
+          description: Name of the racing event
+          maxLength: 255
+        eventType:
+          $ref: '#/components/schemas/EventType'
+        startDate:
+          type: string
+          format: date-time
+          description: Start date and time of the event
+        endDate:
+          type: string
+          format: date-time
+          description: End date and time of the event
+        racers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Racer'
+          description: List of racers participating in the event
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the event was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the event was last updated
+      required:
+        - id
+        - name
+        - eventType
+        - startDate
+        - endDate
+        - createdAt
+        - updatedAt
+
+    CreateRaceEventRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the racing event
+          maxLength: 255
+        eventType:
+          $ref: '#/components/schemas/EventType'
+        startDate:
+          type: string
+          format: date-time
+          description: Start date and time of the event
+        endDate:
+          type: string
+          format: date-time
+          description: End date and time of the event
+      required:
+        - name
+        - eventType
+        - startDate
+        - endDate
+
+    Racer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the racer
+        name:
+          type: string
+          description: Name of the racer
+          maxLength: 255
+        amountOwed:
+          type: integer
+          format: int64
+          description: Amount owed by the racer in cents
+        amountPaid:
+          type: integer
+          format: int64
+          description: Amount paid by the racer in cents
+        eventId:
+          type: string
+          format: uuid
+          description: ID of the associated racing event
+        entryCount:
+          type: integer
+          description: Number of entries for this racer
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the racer was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the racer was last updated
+      required:
+        - id
+        - name
+        - amountOwed
+        - amountPaid
+        - eventId
+        - entryCount
+        - createdAt
+        - updatedAt
+
+    GetUserEventsResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+          description: Indicates if there was an error
+        message:
+          type: string
+          description: Response message
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceEvent'
+          description: List of racing events
+        limit:
+          type: integer
+          format: int64
+          description: Number of items per page
+        page:
+          type: integer
+          format: int64
+          description: Current page number
+        skip:
+          type: integer
+          format: int64
+          description: Number of items skipped
+        totalPages:
+          type: integer
+          format: int64
+          description: Total number of pages
+        totalResults:
+          type: integer
+          format: int64
+          description: Total number of results
+        nextPage:
+          type: integer
+          format: int64
+          nullable: true
+          description: Next page number if available
+      required:
+        - error
+        - message
+        - events
+        - limit
+        - page
+        - skip
+        - totalPages
+        - totalResults
+
+    CreateEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID of the created racing event
+        error:
+          type: boolean
+          description: Indicates if there was an error
+        message:
+          type: string
+          description: Response message
+      required:
+        - id
+        - error
+        - message
+
+    EventUserAccess:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the access record
+        firebaseUid:
+          type: string
+          description: Firebase UID of the user with access
+        eventId:
+          type: string
+          format: uuid
+          description: ID of the racing event
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the access was granted
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the access was last updated
+      required:
+        - id
+        - firebaseUid
+        - eventId
+        - createdAt
+        - updatedAt
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Racing Events
+    description: Operations related to racing events
